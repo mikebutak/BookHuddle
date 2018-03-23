@@ -1,13 +1,19 @@
 const knex = require('./index.js');
 
-const retrieveClubs = (cb, dataObj) => {
-  return knex.select().from('club').then(function(clubs, cb) {
-    cb(clubs, dataObj);
+const retrieveClubs = (cb, clubData, res) => {
+  return knex.select()
+  .from('club')
+  .then((err, clubs) => {
+    if (err ) {
+      cb (err, 501, res)
+    } else {
+      cb(clubs, 200, res);
+    }
   });
 };
 
 
-const checkUser = (user, cb) => {
+const checkUser = (user/*, cb*/) => {
   console.log(user);
    return knex('user')
   .where({
@@ -17,9 +23,11 @@ const checkUser = (user, cb) => {
   .select('email')
   .then((data) => {
     if (data.length > 0 ) {
-      cb(true);
+      return true;
+      // cb(true);
     } else {
-      cb(false);
+      return false;
+      // cb(false);
     }
   });
 };
