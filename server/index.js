@@ -14,17 +14,10 @@ var { buildSchema } = require('graphql');
 let app = express();
 
 // callback for DB queries
-let sendData = (responseData, dataObj, res) => {
+let sendData = (responseData, statusCode, res) => {
   let results = JSON.stringify(responseData);
-  dataObj.body = results;
-  res.status(200).send(dataObj);
+  res.status(statusCode).send(results);
 };
-
-let send401 = (responseData, dataObj, res) => {
-  let results = JSON.stringify(responseData);
-  dataObj.body = results;
-  res.status(401).send(dataObj);
-}
 
 // Parse JSON, urls and cookies
 app.use(bodyParser.json());
@@ -78,33 +71,9 @@ app.get('/', (req, res) => {
 });
 
 app.get('/clubs', (req, res) => {
-  console.log(req, '<-- req.body in get clubs');
-  let dataObj = {
-    confirmRequest: req.body
-  }
-  database.retrieveClubs(sendData, dataObj);
-  // database.retrieveClubs( req.body, function(validate) {
-  //   if (validate) {
-  //     database.
-  //   }
-  // })
-
+  let clubData = req.body
+  database.retrieveClubs(sendData, clubData, res);
 });
-
-// app.post('/login', (req, res) => {
-//   //Login auth goes here
-//   console.log('Logged in!', req.body);
-//   database.checkUser(req.body, function (validate) {
-//     console.log(validate, 'line 248 in func');
-//     if (validate) {
-//       database.retrieveUser(req.body.email, function(userData){
-//         sendData(userData, userData, res);
-//       });
-//     } else {
-//       res.status(401).send('Email or password did not match');
-//     }
-//   });
-// });
 
 app.get('/meetings', (req, res) => {
   // database function here to retrieve clubs
@@ -180,19 +149,38 @@ app.post('/login', (req, res) => {
   database.checkUser(req.body, function (validate) {
     if (validate) {
       database.retrieveUser(req.body.email, function(userData){
-        sendData(userData, userData, res);
+        sendData(userData, 200, res);
       });
     } else {
-      res.status(401).send('Email or password did not match');
+      sendData('Email or password did not match', 401, res);
+      // res.status(401).send('Email or password did not match');
     }
   });
 });
 
 app.post('/signup', (req, res) => {
-  let newUser = {
-    confirmRequest: req.body
-  };
-  database.addUser(sendData, newUser, res);
+  let newUser = req.body;
+  /*let isTaken = */ return database.checkUser(newUser).then((validator) => {
+  //   , (validate) => {
+  //   if (validate) {
+  //     console.log('email is taken');
+  //     return true;
+  //   } else {
+  //     console.log('email is not taken');
+  //     return false;
+  //   }
+  // })
+  // isTaken.then((boolean) => {
+    if(validator === false) {
+      console.log('about to add user');
+      database.saveUser(newUser, (userData) => {
+        res.status(200).send(userData);
+      })
+    } else {
+      console.log('not gonna happen');
+      res.status(401).send('That email address is already in use.')
+    }
+  })
 });
 
 app.get('/logout', (req, res) => {
