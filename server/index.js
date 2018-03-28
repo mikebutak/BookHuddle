@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const uuid = require('uuid/v4');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 const bodyParser = require('body-parser');
 const path = require('path');
 const amazonHelpers = require('./api-helpers/amazon-helpers.js');
@@ -12,6 +13,7 @@ const { buildSchema, graphql } = require('graphql');
 const app = express();
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
+
 
 // callback for responses to client requests that require DB queries
 let sendData = (responseData, statusCode, res) => {
@@ -25,18 +27,66 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Configure local strategy
-passport.use(new LocalStrategy(
+passport.use('local-login',
+  new LocalStrategy(
   { usernameField: 'email' },
   (email, password, done) => {
     database.checkUser({ email: email }, function (err, user) {
-      console.log(user, '<-- user after checkUser')
       if (err) { return done(err); }
       if (!user) { return done(null, false); }
-      if (!user.checkCredentials(email, password)) { return done(null, false); }
-      return done(null, user);
+      if (!database.checkCredentials(email, password)) {
+        return done(null, false);
+      }
+      console.log('user ', user[0]);
+      return done(null, user[0]);
     });
   }
 ));
+
+// need to config a local-signup strategy (to check db before adding user);
+
+app.use(session({
+  // genid: (req) => {
+  //   console.log('generating a uuid')
+  //   return uuid() // use UUIDs for session IDs
+  // },
+  // store: new FileStore(),
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true
+}))
+app.use(passport.initialize());
+app.use(passport.session());
+
+//New login for use with graphql
+// app.post('/login',
+//   passport.authenticate('local', {
+//   successRedirect: '/dashboard',
+//   failureRedirect: '/login',
+//   failureFlash: true,
+//   session: false
+// }) );
+
+// NEW LOGIN CODE FOR USE WITH PASSPORT
+app.post('/login',
+  (req, res, next) => {
+    console.log('req', req);
+    console.log('body', req.body);
+    console.log('user', req.user);
+    console.log('passport', req.passport);
+    console.log('req.session', req.session);
+      return next();
+    },
+  passport.authenticate('local-login'),
+  function(req, res) {
+    res.redirect('/dashboard');
+  })
+
+// OLD LOGIN FROM BEFORE PASSPORT WAS IMPLEMENTED:
+// app.post('/login', (req, res) => {
+//   //Login auth goes here
+//   database.checkUser(req.body, res, sendData);
+// });
 
 // creates passport session for user by serialized ID (tell passport how to serialize the user)
 passport.serializeUser((user, done) => {
@@ -46,7 +96,7 @@ passport.serializeUser((user, done) => {
 // deserializes the user ID for passport to deliver to the session
 passport.deserializeUser((user_id, done) => {
   console.log('deserializing user');
-  User.getUserById(user_id, (err, user) => {
+  database.getUserById(user_id, (err, user) => {
     if (err) {
       return done(err, false);
     } else {
@@ -54,37 +104,6 @@ passport.deserializeUser((user_id, done) => {
     }
   })
 });
-
-app.use(session({
-  genid: (req) => {
-    return uuid() // use UUIDs for session IDs
-  },
-  // store: new FileStore(),
-  secret: 'bookHuddleSecret'
-}))
-app.use(passport.initialize());
-app.use(passport.session());
-
-//New login for use with graphql
-app.post('/login',
-  passport.authenticate('local', {
-  successRedirect: '/dashboard',
-  failureRedirect: '/login',
-  failureFlash: true
-}) );
-
-// NEW LOGIN CODE FOR USE WITH PASSPORT
-// app.post('/login',
-//   passport.authenticate('local'),
-//   function(req, res) {
-//     res.redirect('/dashboard');
-//   })
-
-// OLD LOGIN FROM BEFORE PASSPORT WAS IMPLEMENTED:
-// app.post('/login', (req, res) => {
-//   //Login auth goes here
-//   database.checkUser(req.body, res, sendData);
-// });
 
 app.post('/signup', (req, res) => {
   let newUser = req.body;

@@ -67,7 +67,7 @@ class App extends React.Component {
         });
       },
       error: (err) => {
-        console.log('errror logging in', err);
+        console.log('error logging in', err);
         cb(err);
       }
     });

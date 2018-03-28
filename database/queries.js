@@ -35,11 +35,10 @@ const retrieveClubs = (cb, dataObj, res) => {
 const checkUser = (user, cb) => {
   return db.knex('user')
   .where({
-    email: 'user.email',
+    email: user.email,
   })
   .select()
-  .then((err, user) => {
-    console.log(user, '<--user retrieved from db');
+  .then((user, err) => {
     cb(err, user)
   });
 };
@@ -52,13 +51,16 @@ const checkCredentials = (email, password) => {
     password: password
   })
   .select()
-  .then((data) => {
-    //placeholder for using bcrypt
-    if (data.length > 0 ) {
-      return true;
+  .then((user) => {
+    if (user.length > 0 ) {
+      //placeholder for using bcrypt
+      return user[0];
     } else {
-      return false;
+      return false
     }
+  })
+  .catch((err) => {
+    return err;
   })
 };
 
@@ -165,6 +167,12 @@ const addUser = (cb, user, res) => {
   });
 };
 
+let sendData = (responseData, statusCode, res) => {
+  let results = JSON.stringify(responseData);
+  //console.log(results, '<-- the object sent to client');
+  res.status(statusCode).send(results);
+};
+
 const saveMeeting = (cb, meeting, res) => {
   console.log(meeting, '<-- meeting');
   return db.knex.insert({
@@ -214,9 +222,10 @@ const emailIsInUse = (email) => {
   .where({
     email: email
   })
-  .select('first_name')
+  .select()
   .then((x) => {
     if (x.length > 0 ) {
+      console.log(x, 'emailIsInUse returned true')
     return true;
     } else {
       return false;
@@ -232,6 +241,7 @@ module.exports = {
   addClub,
   checkUser,
   saveMeeting,
-  getUserById
+  getUserById,
+  checkCredentials
 };
 
